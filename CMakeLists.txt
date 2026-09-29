@@ -8,6 +8,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(STONEBOTTRY
     src/main.cpp
     src/Core/Logger.cpp
+    src/Client/ClientProcess.cpp
+    src/Client/GameState.cpp
 )
 
 target_include_directories(STONEBOTTRY PRIVATE include)
