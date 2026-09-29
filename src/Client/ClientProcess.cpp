@@ -48,7 +48,9 @@ bool ClientProcess::openReadOnly() {
 
     processHandle_ = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
                                  FALSE, processId_);
-    return processHandle_ != nullptr;
+    if (!processHandle_) return false;
+
+    return refreshModules();
 #else
     return false;
 #endif
@@ -61,9 +63,52 @@ void ClientProcess::close() noexcept {
         processHandle_ = nullptr;
     }
 #endif
+    modules_.clear();
     attached_ = false;
     processId_ = 0;
     executableName_.clear();
+}
+
+bool ClientProcess::refreshModules() {
+#ifdef _WIN32
+    if (!processHandle_ || processId_ == 0) return false;
+
+    HANDLE snapshot = CreateToolhelp32Snapshot(
+        TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, processId_);
+    if (snapshot == INVALID_HANDLE_VALUE) return false;
+
+    modules_.clear();
+
+    MODULEENTRY32A entry{};
+    entry.dwSize = sizeof(entry);
+
+    if (Module32FirstA(snapshot, &entry)) {
+        do {
+            ModuleInfo info;
+            info.name = entry.szModule;
+            info.baseAddress = reinterpret_cast<std::uintptr_t>(entry.modBaseAddr);
+            info.size = entry.modBaseSize;
+            modules_.push_back(std::move(info));
+        } while (Module32NextA(snapshot, &entry));
+    }
+
+    CloseHandle(snapshot);
+    return !modules_.empty();
+#else
+    return false;
+#endif
+}
+
+const std::vector<ModuleInfo>& ClientProcess::modules() const noexcept {
+    return modules_;
+}
+
+const ModuleInfo* ClientProcess::findModule(
+    const std::string& moduleName) const noexcept {
+    for (const auto& module : modules_) {
+        if (module.name == moduleName) return &module;
+    }
+    return nullptr;
 }
 
 bool ClientProcess::isAttached() const noexcept {
@@ -77,5 +122,11 @@ std::uint32_t ClientProcess::processId() const noexcept {
 const std::string& ClientProcess::executableName() const noexcept {
     return executableName_;
 }
+
+#ifdef _WIN32
+HANDLE ClientProcess::nativeHandle() const noexcept {
+    return processHandle_;
+}
+#endif
 
 }
