@@ -11,7 +11,9 @@ BOT_CONFIG = {
         "min_scale": 0.50,
         "max_scale": 1.60,
         "scale_step": 0.05,
-        "min_distance": 45,
+        # Aynı Metin taşının farklı ölçeklerdeki eşleşmelerini
+        # tek hedef altında birleştirmek için mesafeyi artırıyoruz.
+        "min_distance": 80,
         "max_detections": 10,
     },
 }
