@@ -1,12 +1,12 @@
 from vision.screen import Screen
-from vision.detector import StoneDetector
+from vision.detector import StoneDetector, draw_detection
 from config import BOT_CONFIG
 
 import cv2
 
 
 def main():
-    print("STONEBOTTRY - MULTI STONE DETECTION")
+    print("STONEBOTTRY - TEMPLATE DEBUG")
     print("=" * 50)
 
     screen = Screen()
@@ -19,75 +19,49 @@ def main():
         return
 
     detections = detector.detect_all(frame)
+    debug_matches = detector.debug_matches(frame, count=10)
     debug = frame.copy()
 
     print()
+    print(f"Normal esik: {detector.min_confidence:.2f}")
 
-    if not detections:
-        print("Hicbir Metin tasi bulunamadi.")
-        cv2.putText(
-            debug,
-            "NO STONES DETECTED",
-            (20, 45),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1.0,
-            (0, 0, 255),
-            2,
-            cv2.LINE_AA,
-        )
-    else:
-        print(f"{len(detections)} adet aday Metin tasi bulundu.")
-        print()
-
+    if detections:
+        print(f"Esigi gecen aday sayisi: {len(detections)}")
         for index, detection in enumerate(detections, start=1):
-            x, y = detection.center
-            box_x, box_y, width, height = detection.box
-
             print(
-                f"{index}. X={x}, Y={y} | "
-                f"Confidence={detection.confidence:.2f}"
+                f"  GERCEK ADAY #{index}: "
+                f"X={detection.center[0]}, Y={detection.center[1]} | "
+                f"Confidence={detection.confidence:.3f}"
             )
+            draw_detection(debug, detection, index, (0, 255, 0))
+    else:
+        print("Normal esigi gecen Metin tasi yok.")
 
-            cv2.rectangle(
-                debug,
-                (box_x, box_y),
-                (box_x + width, box_y + height),
-                (0, 0, 255),
-                3,
-            )
+    print()
+    print("En guclu dusuk-esik eslesmeleri:")
 
-            cv2.circle(
-                debug,
-                (x, y),
-                7,
-                (0, 255, 0),
-                -1,
-            )
+    for index, detection in enumerate(debug_matches, start=1):
+        print(
+            f"  #{index}: "
+            f"X={detection.center[0]}, Y={detection.center[1]} | "
+            f"Confidence={detection.confidence:.3f}"
+        )
 
-            label = (
-                f"#{index} ({x}, {y}) "
-                f"{detection.confidence:.2f}"
-            )
+        # Yellow/orange-style debug boxes mark candidates only.
+        draw_detection(debug, detection, index, (0, 180, 255))
 
-            cv2.putText(
-                debug,
-                label,
-                (box_x, max(30, box_y - 10)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 0),
-                2,
-                cv2.LINE_AA,
-            )
+    if not debug_matches:
+        print("Hic eslesme uretilemedi.")
 
     cv2.imwrite("debug_detection.png", debug)
 
     print()
     print("Debug goruntusu: debug_detection.png")
+    print("Yesil = normal esigi gecen aday")
+    print("Turuncu = sadece debug icin dusuk esik adayi")
     print("=" * 50)
-    print("Goruntu penceresini kapatmak icin bir tusa basin.")
 
-    cv2.imshow("STONEBOTTRY - Multi Stone Detection", debug)
+    cv2.imshow("STONEBOTTRY - Template Debug", debug)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
