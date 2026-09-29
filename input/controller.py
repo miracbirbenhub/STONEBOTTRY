@@ -11,3 +11,8 @@ class InputController:
     @staticmethod
     def click() -> None:
         pyautogui.click()
+
+    @staticmethod
+    def click_at(x: int, y: int) -> None:
+        """Select a visible target using an ordinary mouse click."""
+        pyautogui.click(x=x, y=y)
