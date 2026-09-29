@@ -16,4 +16,11 @@ BOT_CONFIG = {
         "min_distance": 80,
         "max_detections": 10,
     },
+    "targeting": {
+        "enabled": True,
+        "click_delay": 0.60,
+        "rescan_delay": 1.00,
+        "center_bias": 0.15,
+    },
+    },
 }
