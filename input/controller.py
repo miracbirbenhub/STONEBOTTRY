@@ -23,6 +23,6 @@ class InputController:
         """Move to a visible target and send an explicit left-button click."""
         pyautogui.moveTo(x, y, duration=0.15)
         time.sleep(0.10)
-        pyautogui.mouseDown(button="left")
+        pyautogui.mouseDown(button="right")
         time.sleep(0.08)
         pyautogui.mouseUp(button="left")
