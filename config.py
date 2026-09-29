@@ -4,8 +4,7 @@ BOT_CONFIG = {
     # None means the primary screen for the first prototype.
     "region": None,
     "detection": {
-        "min_area": 250,
-        "max_area": 100000,
-        "min_confidence": 0.45,
-    },
+    "template_path": "stone_template.png",
+    "min_confidence": 0.55,
+},
 }
