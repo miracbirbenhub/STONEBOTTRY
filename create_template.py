@@ -1,7 +1,11 @@
 import cv2
 
 IMAGE = "metin2_test.png"
-OUTPUT = "stone_template.png"
+OUTPUTS = [
+    "stone_template_1.png",
+    "stone_template_2.png",
+    "stone_template_3.png",
+]
 
 image = cv2.imread(IMAGE)
 
@@ -9,26 +13,34 @@ if image is None:
     print("metin2_test.png bulunamadi.")
     raise SystemExit
 
-print("Metin tasinin etrafini mouse ile sec.")
-print("Secim bitince ENTER'a bas.")
-print("Iptal etmek icin ESC'ye bas.")
+print("3 farkli Metin tasindan template olusturacagiz.")
+print("Her pencerede tasi tamamen kapsayan bir dikdortgen sec.")
+print("ENTER = onayla, ESC = iptal et.")
+print()
 
-x, y, w, h = cv2.selectROI(
-    "Metin Tasi Sec",
-    image,
-    showCrosshair=True,
-    fromCenter=False
-)
+for index, output in enumerate(OUTPUTS, start=1):
+    print(f"[{index}/3] Metin tasini sec: {output}")
 
-cv2.destroyAllWindows()
+    x, y, w, h = cv2.selectROI(
+        f"Metin Tasi {index}",
+        image,
+        showCrosshair=True,
+        fromCenter=False,
+    )
 
-if w == 0 or h == 0:
-    print("Secim yapilmadi.")
-    raise SystemExit
+    cv2.destroyAllWindows()
 
-template = image[y:y+h, x:x+w]
+    if w == 0 or h == 0:
+        print("Secim yapilmadi. Islem durduruldu.")
+        raise SystemExit
 
-if cv2.imwrite(OUTPUT, template):
-    print(f"Template kaydedildi: {OUTPUT}")
-else:
-    print("Template kaydedilemedi.")
+    template = image[y:y + h, x:x + w]
+
+    if cv2.imwrite(output, template):
+        print(f"Kaydedildi: {output}")
+    else:
+        print(f"Kaydedilemedi: {output}")
+        raise SystemExit
+
+print()
+print("3 template hazir.")
