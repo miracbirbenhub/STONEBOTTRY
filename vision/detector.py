@@ -17,15 +17,19 @@ class StoneDetection:
     center: Tuple[int, int]
     confidence: float
     box: Tuple[int, int, int, int]
+    template_index: int = 0
 
 
 class StoneDetector:
-    """Multi-scale template matching with a debug mode."""
+    """Multi-template, multi-scale visual detector for Metin stones."""
 
     def __init__(self, settings: dict):
-        self.template_path = settings.get(
-            "template_path", "stone_template.png"
-        )
+        paths = settings.get("template_paths")
+
+        if not paths:
+            old_path = settings.get("template_path", "stone_template.png")
+            paths = [old_path]
+
         self.min_confidence = settings.get("min_confidence", 0.55)
         self.min_scale = settings.get("min_scale", 0.50)
         self.max_scale = settings.get("max_scale", 1.60)
@@ -33,51 +37,64 @@ class StoneDetector:
         self.min_distance = settings.get("min_distance", 45)
         self.max_detections = settings.get("max_detections", 10)
 
-        template = cv2.imread(self.template_path, cv2.IMREAD_GRAYSCALE)
-        if template is None:
-            raise FileNotFoundError(
-                f"Template bulunamadi: {self.template_path}"
-            )
+        self.templates = []
 
-        self.template = template
-        self.template_h, self.template_w = template.shape
-        self.last_best_matches: List[StoneDetection] = []
+        for index, path in enumerate(paths, start=1):
+            template = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
 
-    def _match(self, frame: np.ndarray, threshold: float) -> List[StoneDetection]:
+            if template is None:
+                raise FileNotFoundError(
+                    f"Template bulunamadi: {path}"
+                )
+
+            self.templates.append((index, template))
+
+    def _match(
+        self, frame: np.ndarray, threshold: float
+    ) -> List[StoneDetection]:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         candidates: List[StoneDetection] = []
 
-        scale = self.min_scale
-        while scale <= self.max_scale + 1e-9:
-            width = max(8, int(self.template_w * scale))
-            height = max(8, int(self.template_h * scale))
+        for template_index, template in self.templates:
+            template_h, template_w = template.shape
 
-            if width <= gray.shape[1] and height <= gray.shape[0]:
-                resized = cv2.resize(
-                    self.template,
-                    (width, height),
-                    interpolation=cv2.INTER_AREA if scale < 1.0
-                    else cv2.INTER_CUBIC,
-                )
+            scale = self.min_scale
 
-                result = cv2.matchTemplate(
-                    gray,
-                    resized,
-                    cv2.TM_CCOEFF_NORMED,
-                )
+            while scale <= self.max_scale + 1e-9:
+                width = max(8, int(template_w * scale))
+                height = max(8, int(template_h * scale))
 
-                ys, xs = np.where(result >= threshold)
-
-                for x, y in zip(xs.tolist(), ys.tolist()):
-                    candidates.append(
-                        StoneDetection(
-                            center=(x + width // 2, y + height // 2),
-                            confidence=float(result[y, x]),
-                            box=(x, y, width, height),
-                        )
+                if width <= gray.shape[1] and height <= gray.shape[0]:
+                    resized = cv2.resize(
+                        template,
+                        (width, height),
+                        interpolation=cv2.INTER_AREA
+                        if scale < 1.0
+                        else cv2.INTER_CUBIC,
                     )
 
-            scale += self.scale_step
+                    result = cv2.matchTemplate(
+                        gray,
+                        resized,
+                        cv2.TM_CCOEFF_NORMED,
+                    )
+
+                    ys, xs = np.where(result >= threshold)
+
+                    for x, y in zip(xs.tolist(), ys.tolist()):
+                        candidates.append(
+                            StoneDetection(
+                                center=(
+                                    x + width // 2,
+                                    y + height // 2,
+                                ),
+                                confidence=float(result[y, x]),
+                                box=(x, y, width, height),
+                                template_index=template_index,
+                            )
+                        )
+
+                scale += self.scale_step
 
         return self._remove_duplicates(candidates)
 
@@ -86,18 +103,14 @@ class StoneDetector:
             return []
 
         detections = self._match(frame, self.min_confidence)
-
-        # Keep the strongest few matches for normal detection.
         return detections[: self.max_detections]
 
     def debug_matches(
-        self, frame: np.ndarray, count: int = 10
+        self, frame: np.ndarray, count: int = 15
     ) -> List[StoneDetection]:
         if frame is None or frame.size == 0:
             return []
 
-        # Deliberately lower only for diagnosis. These are NOT reported
-        # as real detections by detect_all().
         candidates = self._match(frame, 0.20)
         return candidates[:count]
 
@@ -147,17 +160,23 @@ class StoneDetector:
         return selected
 
 
-def draw_detection(debug: np.ndarray, detection: StoneDetection, index: int,
-                   color: Tuple[int, int, int]) -> None:
+def draw_detection(
+    debug: np.ndarray,
+    detection: StoneDetection,
+    index: int,
+    color: Tuple[int, int, int],
+) -> None:
     x, y, w, h = detection.box
     cx, cy = detection.center
 
-    cv2.rectangle(
-        debug, (x, y), (x + w, y + h), color, 2
-    )
+    cv2.rectangle(debug, (x, y), (x + w, y + h), color, 2)
     cv2.circle(debug, (cx, cy), 5, color, -1)
 
-    label = f"#{index} {detection.confidence:.2f}"
+    label = (
+        f"#{index} T{detection.template_index} "
+        f"{detection.confidence:.2f}"
+    )
+
     cv2.putText(
         debug,
         label,
