@@ -2,12 +2,19 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
 
 namespace client {
+
+struct ModuleInfo {
+    std::string name;
+    std::uintptr_t baseAddress{0};
+    std::uint32_t size{0};
+};
 
 class ClientProcess {
 public:
@@ -25,10 +32,19 @@ public:
     std::uint32_t processId() const noexcept;
     const std::string& executableName() const noexcept;
 
+    bool refreshModules();
+    const std::vector<ModuleInfo>& modules() const noexcept;
+    const ModuleInfo* findModule(const std::string& moduleName) const noexcept;
+
+#ifdef _WIN32
+    HANDLE nativeHandle() const noexcept;
+#endif
+
 private:
     bool attached_{false};
     std::uint32_t processId_{0};
     std::string executableName_;
+    std::vector<ModuleInfo> modules_;
 
 #ifdef _WIN32
     HANDLE processHandle_{nullptr};
