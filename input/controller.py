@@ -1,8 +1,14 @@
+import time
+
 import pyautogui
 
 
 class InputController:
-    """Normal-user-level input helper. No client injection or protection bypass."""
+    """Normal-user-level mouse input helper."""
+
+    def __init__(self):
+        pyautogui.PAUSE = 0.05
+        pyautogui.FAILSAFE = True
 
     @staticmethod
     def move_mouse(x: int, y: int, duration: float = 0.15) -> None:
@@ -14,5 +20,9 @@ class InputController:
 
     @staticmethod
     def click_at(x: int, y: int) -> None:
-        """Select a visible target using an ordinary mouse click."""
-        pyautogui.click(x=x, y=y)
+        """Move to a visible target and send an explicit left-button click."""
+        pyautogui.moveTo(x, y, duration=0.15)
+        time.sleep(0.10)
+        pyautogui.mouseDown(button="left")
+        time.sleep(0.08)
+        pyautogui.mouseUp(button="left")
