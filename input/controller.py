@@ -1,5 +1,6 @@
 import ctypes
 import time
+from ctypes import wintypes
 
 
 user32 = ctypes.windll.user32
@@ -17,7 +18,7 @@ class InputController:
     @staticmethod
     def move_mouse(x: int, y: int, duration: float = 0.15) -> None:
         start_x, start_y = 0, 0
-        point = ctypes.wintypes.POINT()
+        point = wintypes.POINT()
         if user32.GetCursorPos(ctypes.byref(point)):
             start_x, start_y = point.x, point.y
 
