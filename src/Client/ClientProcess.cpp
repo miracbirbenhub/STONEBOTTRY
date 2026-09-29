@@ -1,13 +1,18 @@
 #include "Client/ClientProcess.h"
 
 #ifdef _WIN32
-#include <windows.h>
 #include <tlhelp32.h>
 #endif
 
 namespace client {
 
+ClientProcess::~ClientProcess() {
+    close();
+}
+
 bool ClientProcess::find(const std::string& executableName) {
+    close();
+
 #ifdef _WIN32
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (snapshot == INVALID_HANDLE_VALUE) return false;
@@ -36,8 +41,41 @@ bool ClientProcess::find(const std::string& executableName) {
 #endif
 }
 
-bool ClientProcess::isAttached() const noexcept { return attached_; }
-std::uint32_t ClientProcess::processId() const noexcept { return processId_; }
-const std::string& ClientProcess::executableName() const noexcept { return executableName_; }
+bool ClientProcess::openReadOnly() {
+#ifdef _WIN32
+    if (!attached_ || processId_ == 0) return false;
+    if (processHandle_) return true;
+
+    processHandle_ = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+                                 FALSE, processId_);
+    return processHandle_ != nullptr;
+#else
+    return false;
+#endif
+}
+
+void ClientProcess::close() noexcept {
+#ifdef _WIN32
+    if (processHandle_) {
+        CloseHandle(processHandle_);
+        processHandle_ = nullptr;
+    }
+#endif
+    attached_ = false;
+    processId_ = 0;
+    executableName_.clear();
+}
+
+bool ClientProcess::isAttached() const noexcept {
+    return attached_;
+}
+
+std::uint32_t ClientProcess::processId() const noexcept {
+    return processId_;
+}
+
+const std::string& ClientProcess::executableName() const noexcept {
+    return executableName_;
+}
 
 }
