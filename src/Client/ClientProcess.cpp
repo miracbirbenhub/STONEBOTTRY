@@ -2,6 +2,8 @@
 
 #ifdef _WIN32
 #include <tlhelp32.h>
+#include <windows.h>
+#include <winnt.h>
 #endif
 
 namespace client {
@@ -111,6 +113,67 @@ const ModuleInfo* ClientProcess::findModule(
     return nullptr;
 }
 
+std::vector<SectionInfo> ClientProcess::inspectPeSections(
+    const std::string& executablePath) {
+    std::vector<SectionInfo> sections;
+
+#ifdef _WIN32
+    HANDLE file = CreateFileA(executablePath.c_str(), GENERIC_READ,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                              nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return sections;
+
+    HANDLE mapping = CreateFileMappingA(file, nullptr, PAGE_READONLY, 0, 0, nullptr);
+    if (!mapping) {
+        CloseHandle(file);
+        return sections;
+    }
+
+    const auto* base = static_cast<const std::uint8_t*>(
+        MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0));
+
+    if (base) {
+        const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
+        if (dos->e_magic == IMAGE_DOS_SIGNATURE) {
+            const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERSA*>(
+                base + dos->e_lfanew);
+
+            if (nt->Signature == IMAGE_NT_SIGNATURE) {
+                const auto* firstSection = IMAGE_FIRST_SECTION(nt);
+                for (unsigned i = 0; i < nt->FileHeader.NumberOfSections; ++i) {
+                    char name[9]{};
+                    for (int j = 0; j < 8 && firstSection[i].Name[j]; ++j)
+                        name[j] = static_cast<char>(firstSection[i].Name[j]);
+
+                    SectionInfo section;
+                    section.name = name;
+                    section.virtualAddress = firstSection[i].VirtualAddress;
+                    section.virtualSize = firstSection[i].Misc.VirtualSize;
+                    section.rawSize = firstSection[i].SizeOfRawData;
+                    section.characteristics = firstSection[i].Characteristics;
+                    sections.push_back(std::move(section));
+                }
+            }
+        }
+
+        UnmapViewOfFile(base);
+    }
+
+    CloseHandle(mapping);
+    CloseHandle(file);
+#else
+    (void)executablePath;
+#endif
+
+    return sections;
+}
+
+#ifdef _WIN32
+HANDLE ClientProcess::nativeHandle() const noexcept {
+    return processHandle_;
+}
+#endif
+
 bool ClientProcess::isAttached() const noexcept {
     return attached_;
 }
@@ -122,11 +185,5 @@ std::uint32_t ClientProcess::processId() const noexcept {
 const std::string& ClientProcess::executableName() const noexcept {
     return executableName_;
 }
-
-#ifdef _WIN32
-HANDLE ClientProcess::nativeHandle() const noexcept {
-    return processHandle_;
-}
-#endif
 
 }
