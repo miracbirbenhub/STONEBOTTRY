@@ -16,6 +16,14 @@ struct ModuleInfo {
     std::uint32_t size{0};
 };
 
+struct SectionInfo {
+    std::string name;
+    std::uint32_t virtualAddress{0};
+    std::uint32_t virtualSize{0};
+    std::uint32_t rawSize{0};
+    std::uint32_t characteristics{0};
+};
+
 class ClientProcess {
 public:
     ClientProcess() = default;
@@ -39,6 +47,9 @@ public:
 #ifdef _WIN32
     HANDLE nativeHandle() const noexcept;
 #endif
+
+    static std::vector<SectionInfo> inspectPeSections(
+        const std::string& executablePath);
 
 private:
     bool attached_{false};
