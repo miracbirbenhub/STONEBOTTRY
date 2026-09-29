@@ -1,8 +1,16 @@
 #include "Core/Logger.h"
+#include "Client/ClientProcess.h"
 
 int main() {
     core::Logger::info("STONEBOTTRY starting...");
-    core::Logger::info("C++20 core initialized.");
-    core::Logger::info("Next: client integration and game-state abstraction.");
+
+    client::ClientProcess clientProcess;
+    if (clientProcess.find("AlcazarMeta.exe")) {
+        core::Logger::info("AlcazarMeta.exe detected.");
+    } else {
+        core::Logger::warn("AlcazarMeta.exe is not running.");
+    }
+
+    core::Logger::info("Client integration layer initialized.");
     return 0;
 }
