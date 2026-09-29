@@ -1,10 +1,17 @@
 BOT_CONFIG = {
     "window_title": "AlcazarMeta",
-    # Set these to the client area you want to inspect.
-    # None means the primary screen for the first prototype.
     "region": None,
     "detection": {
-    "template_path": "stone_template.png",
-    "min_confidence": 0.55,
-},
+        "template_paths": [
+            "stone_template_1.png",
+            "stone_template_2.png",
+            "stone_template_3.png",
+        ],
+        "min_confidence": 0.55,
+        "min_scale": 0.50,
+        "max_scale": 1.60,
+        "scale_step": 0.05,
+        "min_distance": 45,
+        "max_detections": 10,
+    },
 }
