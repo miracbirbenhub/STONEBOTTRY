@@ -1,101 +1,75 @@
-from vision.screen import Screen
-from vision.detector import StoneDetector, draw_detection
-from config import BOT_CONFIG
+from time import monotonic, sleep
 
 import cv2
 
+from config import BOT_CONFIG
+from input.controller import InputController
+from vision.detector import StoneDetector, StoneDetection
+from vision.screen import Screen
 
-def _is_near_existing(detection, existing, distance=45):
-    x, y = detection.center
-    for item in existing:
-        ex, ey = item.center
-        if ((x - ex) ** 2 + (y - ey) ** 2) ** 0.5 < distance:
-            return True
-    return False
+
+def choose_target(detections: list[StoneDetection], frame_width: int, frame_height: int):
+    """Choose the accepted stone closest to the game viewport center."""
+    if not detections:
+        return None
+
+    cx = frame_width / 2
+    cy = frame_height / 2
+    bias = BOT_CONFIG["targeting"].get("center_bias", 0.15)
+
+    def score(detection):
+        x, y = detection.center
+        dx = (x - cx) / max(1, frame_width)
+        dy = (y - cy) / max(1, frame_height)
+        distance = (dx * dx + dy * dy) ** 0.5
+        return distance - detection.confidence * bias
+
+    return min(detections, key=score)
 
 
 def main():
-    print("STONEBOTTRY - TEMPLATE DEBUG")
+    print("STONEBOTTRY - AUTO TARGET")
     print("=" * 50)
+    print("Normal kullanici seviyesi mouse ile hedef secimi aktif.")
+    print("Durdurmak icin CTRL+C kullan.")
 
     screen = Screen()
     detector = StoneDetector(BOT_CONFIG["detection"])
+    controller = InputController()
+    targeting = BOT_CONFIG["targeting"]
 
-    frame = screen.capture_game_region()
+    last_click = 0.0
 
-    if frame is None:
-        print("Ekran yakalanamadi.")
-        return
-
-    detections = detector.detect_all(frame)
-    debug_matches = detector.debug_matches(frame, count=15)
-    debug = frame.copy()
-
-    print()
-    print(f"Normal esik: {detector.min_confidence:.2f}")
-
-    if detections:
-        print(f"Esigi gecen aday sayisi: {len(detections)}")
-        print()
-
-        for index, detection in enumerate(detections, start=1):
-            x, y = detection.center
-
-            print(
-                f"  METIN #{index}: "
-                f"X={x}, Y={y} | "
-                f"Confidence={detection.confidence:.3f} | "
-                f"Template={detection.template_index}"
-            )
-
-            # Green = accepted Metin candidate.
-            draw_detection(debug, detection, index, (0, 255, 0))
-
-            # Put a larger coordinate label near the center so it remains
-            # readable even when the detection box is small.
-            cv2.putText(
-                debug,
-                f"METIN #{index}  X:{x} Y:{y}",
-                (max(10, x - 100), min(debug.shape[0] - 10, y + 45)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.75,
-                (0, 255, 0),
-                2,
-                cv2.LINE_AA,
-            )
-    else:
-        print("Normal esigi gecen Metin tasi yok.")
-
-    print()
-    print("En guclu dusuk-esik eslesmeleri:")
-
-    debug_index = 1
-
-    for detection in debug_matches:
-        # Do not draw low-threshold debug boxes over accepted detections.
-        if _is_near_existing(detection, detections):
+    while True:
+        frame = screen.capture_game_region()
+        if frame is None:
+            print("Ekran yakalanamadi.")
+            sleep(1.0)
             continue
 
+        detections = detector.detect_all(frame)
+        target = choose_target(detections, frame.shape[1], frame.shape[0])
+
+        if target is None:
+            print("Metin bulunamadi; yeniden taraniyor...")
+            sleep(targeting["rescan_delay"])
+            continue
+
+        now = monotonic()
+        if now - last_click < targeting["click_delay"]:
+            sleep(0.05)
+            continue
+
+        x, y = target.center
         print(
-            f"  DEBUG #{debug_index}: "
-            f"X={detection.center[0]}, Y={detection.center[1]} | "
-            f"Confidence={detection.confidence:.3f}"
+            f"HEDEF -> X={x}, Y={y} | "
+            f"Confidence={target.confidence:.3f} | "
+            f"Template={target.template_index}"
         )
 
-        draw_detection(debug, detection, debug_index, (0, 180, 255))
-        debug_index += 1
-
-    cv2.imwrite("debug_detection.png", debug)
-
-    print()
-    print("Debug goruntusu: debug_detection.png")
-    print("YESIL = kabul edilen Metin tasi")
-    print("SARI = sadece dusuk-esik debug adayi")
-    print("=" * 50)
-
-    cv2.imshow("STONEBOTTRY - Template Debug", debug)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        controller.click_at(x, y)
+        last_click = now
+        sleep(targeting["rescan_delay"])
 
 
 if __name__ == "__main__":
