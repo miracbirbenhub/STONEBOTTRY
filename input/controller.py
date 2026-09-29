@@ -36,7 +36,7 @@ class InputController:
     @staticmethod
     def click_at(x: int, y: int) -> None:
         InputController.move_mouse(x, y, duration=0.18)
-        time.sleep(0.10)
+        time.sleep(0.40)
         user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-        time.sleep(0.10)
+        time.sleep(0.20)
         user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
